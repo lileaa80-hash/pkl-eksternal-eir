@@ -1,0 +1,57 @@
+// ==========================================
+// 1. Arrow Function
+// ==========================================
+// Arrow function adalah sintaks yang lebih ringkas. 
+// Tidak memiliki 'this' sendiri dan 'arguments'.
+
+// Fungsi biasa
+function tambahBiasa(a, b) {
+    return a + b;
+}
+
+// Arrow function (menggunakan nama berbeda agar tidak bentrok)
+const tambahArrow = (a, b) => a + b;
+
+console.log("Hasil Tambah Biasa:", tambahBiasa(2, 3)); 
+console.log("Hasil Tambah Arrow:", tambahArrow(2, 3)); 
+
+// ==========================================
+// 2. Anonymous Function
+// ==========================================
+// Fungsi tanpa nama, biasanya untuk callback atau fungsi sekali pakai.
+
+// Anonymous function tradisional sebagai argumen
+setTimeout(function() {
+    console.log("Ini adalah anonymous function (tradisional)");
+}, 1000);
+
+// Arrow function sebagai anonymous function (lebih modern)
+setTimeout(() => {
+    console.log("Ini adalah anonymous arrow function");
+}, 1500);
+
+// ==========================================
+// 3. Return
+// ==========================================
+// Digunakan untuk mengembalikan nilai. Setelah 'return', kode di bawahnya tidak dieksekusi.
+
+function kali(a, b) {
+    return a * b;
+    // console.log("Ini tidak akan pernah muncul"); // Baris ini tidak akan jalan
+}
+
+let hasil = kali(4, 5);
+console.log("Hasil Kali:", hasil); // Output: 20
+
+// ==========================================
+// 4. Parameter
+// ==========================================
+// Variabel yang menerima input saat fungsi dipanggil.
+
+// Fungsi dengan parameter default
+function greet(nama = "Pengguna") {
+    console.log(`Halo, ${nama}!`);
+}
+
+greet("Ikhwan"); // Output: Halo, Ikhwan!
+greet();         // Output: Halo, Pengguna! (mengambil nilai default) 

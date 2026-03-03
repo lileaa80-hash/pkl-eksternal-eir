@@ -1,0 +1,86 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use App\Models\Post;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+
+class OptimizationController extends Controller
+{
+    /**
+     * 1. Optimasi Select & Caching
+     * Mengambil data user aktif dengan kolom tertentu saja dan disimpan di Cache.
+     */
+    public function getFastUsers()
+    {
+        // Gunakan Cache agar tidak hit database terus menerus
+        $users = Cache::remember('active_users_list', 3600, function () {
+            // HANYA select kolom yang dibutuhkan untuk menghemat memory
+            return DB::table('users')
+                ->select('id', 'name', 'email', 'status')
+                ->where('status', 'active')
+                ->limit(100)
+                ->get();
+        });
+
+        // Penggunaan exists() lebih cepat daripada count() > 0
+        $hasAdmin = DB::table('users')->where('role', 'admin')->exists();
+
+        return response()->json([
+            'admin_exists' => $hasAdmin,
+            'data' => $users
+        ]);
+    }
+
+    /**
+     * 2. Menghindari N+1 Problem (Eager Loading)
+     * Mengambil 10 user beserta postingan mereka dalam 2 query saja.
+     */
+    public function getUsersWithPosts()
+    {
+        // 'with' akan melakukan Eager Loading
+        $users = User::with(['posts' => function ($query) {
+            $query->select('id', 'user_id', 'title'); // Optimasi kolom di relasi
+        }])
+        ->where('active', true)
+        ->take(10)
+        ->get();
+
+        return response()->json($users);
+    }
+
+    /**
+     * 3. Cursor Pagination untuk Dataset Besar
+     * Sangat efisien untuk "Infinite Scroll" karena tidak lambat saat data jutaan.
+     */
+    public function getPaginatedData()
+    {
+        // Pakai cursorPaginate, bukan paginate() biasa jika data sangat banyak
+        return DB::table('posts')
+            ->select('id', 'title', 'created_at')
+            ->orderBy('id', 'desc')
+            ->cursorPaginate(15);
+    }
+
+    /**
+     * 4. Batch Processing (chunkById)
+     * Mengupdate ribuan data tanpa membuat server "Down" (Memory Leak).
+     */
+    public function processMassiveUpdate()
+    {
+        DB::table('users')
+            ->where('last_login', '<', now()->subMonths(6))
+            ->chunkById(200, function ($users) {
+                foreach ($users as $user) {
+                    DB::table('users')
+                        ->where('id', $user->id)
+                        ->update(['status' => 'inactive']);
+                }
+            });
+
+        return "Proses update massal selesai!";
+    }
+}

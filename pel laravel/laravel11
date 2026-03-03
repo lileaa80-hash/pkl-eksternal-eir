@@ -1,0 +1,74 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+
+class UserController extends Controller
+{
+    public function index()
+    {
+        // 1. Raw Expressions: Menghitung jumlah user per status
+        $userStats = DB::table('users')
+            ->select(DB::raw('count(*) as user_count, status'))
+            ->groupBy('status')
+            ->get();
+
+        // 2. selectRaw: Sama seperti di atas tapi lebih ringkas
+        $activeUsers = DB::table('users')
+            ->selectRaw('count(*) as total')
+            ->where('active', true)
+            ->first();
+
+        // 3. whereRaw: Filter umur dan vote (pakai binding '?' agar aman)
+        $seniorUsers = DB::table('users')
+            ->whereRaw('age > ? and votes > ?', [25, 100])
+            ->get();
+
+        // 4. orderByRaw: Urutkan berdasarkan selisih waktu update
+        $recentlyUpdated = DB::table('users')
+            ->orderByRaw('updated_at - created_at DESC')
+            ->limit(5)
+            ->get();
+
+        return response()->json([
+            'stats' => $userStats,
+            'seniors' => $seniorUsers,
+            'recent' => $recentlyUpdated
+        ]);
+    }
+
+    public function manageData()
+    {
+        // DB::insert dengan parameter binding
+        DB::insert(
+            'INSERT INTO users (name, email, password, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+            ['John Doe', 'john@example.com', Hash::make('password123'), 'active', now(), now()]
+        );
+
+        // DB::update
+        $affected = DB::update(
+            'UPDATE users SET votes = 100 WHERE email = ?',
+            ['john@example.com']
+        );
+
+        return "Data berhasil dikelola! Baris terpengaruh: $affected";
+    }
+
+    public function processLargeData()
+    {
+        // Menggunakan chunkById untuk efisiensi memori pada data besar
+        DB::table('users')->orderBy('id')->chunkById(100, function ($users) {
+            foreach ($users as $user) {
+                // Contoh: Tandai user sebagai 'processed'
+                DB::table('users')
+                    ->where('id', $user->id)
+                    ->update(['status' => 'processed']);
+            }
+        });
+
+        return "Proses batch selesai!";
+    }
+}

@@ -1,0 +1,61 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Jalankan migrasi untuk membuat tabel 'users'.
+     * Bagian ini mencakup hampir semua tipe data umum di Laravel.
+     */
+    public function up(): void
+    {
+        Schema::create('users', function (Blueprint $table) {
+            // --- TIPE ID & TIMESTAMPS ---
+            $table->id(); // Primary Key (Big Increments)
+            $table->timestamps(); // created_at & updated_at
+            $table->softDeletes(); // deleted_at (untuk fitur hapus sementara)
+            $table->rememberToken(); // Untuk fitur "Remember Me" saat login
+
+            // --- TIPE STRING & TEKS ---
+            $table->string('username', 50)->unique(); // VARCHAR(50) dan Unik
+            $table->string('full_name'); // VARCHAR(255)
+            $table->string('email')->unique();
+            $table->string('password');
+            $table->char('country_code', 3)->default('IDN'); // CHAR(3)
+            $table->text('bio')->nullable(); // TEXT (Bisa kosong)
+            $table->longText('metadata')->nullable(); // LONGTEXT untuk data besar
+
+            // --- TIPE NUMERIK ---
+            $table->integer('login_count')->default(0); // INT
+            $table->bigInteger('points')->default(0); // BIGINT
+            $table->decimal('balance', 15, 2)->default(0.00); // DECIMAL (Total 15 digit, 2 dibelakang koma)
+            $table->boolean('is_active')->default(true); // BOOLEAN (TinyInt 1)
+
+            // --- TIPE TANGGAL & WAKTU ---
+            $table->date('birthday')->nullable();
+            $table->dateTime('last_login_at')->nullable();
+            $table->timestamp('email_verified_at')->nullable();
+
+            // --- TIPE KHUSUS & INDEX ---
+            $table->json('settings')->nullable(); // Kolom JSON
+            $table->enum('role', ['admin', 'editor', 'user'])->default('user'); // ENUM
+            $table->string('api_token', 80)->unique()->nullable()->index(); // Index untuk pencarian cepat
+
+            // --- FOREIGN KEY (RELASI) ---
+            // Contoh relasi ke tabel 'departments' (tabelnya harus dibuat dulu nanti)
+            // $table->foreignId('department_id')->constrained()->onDelete('cascade');
+        });
+    }
+
+    /**
+     * Membatalkan migrasi (Menghapus tabel).
+     */
+    public function down(): void
+    {
+        // Menghapus tabel jika proses rollback dijalankan
+        Schema::dropIfExists('users');
+    }
+};

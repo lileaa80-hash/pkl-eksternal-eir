@@ -1,0 +1,83 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Throwable;
+
+class UserController extends Controller
+{
+    /**
+     * Contoh Menggunakan Raw Queries (Laravel 11/12)
+     */
+    public function report()
+    {
+        // Mengambil data dengan Raw Expression & selectRaw
+        $data = DB::table('users')
+            ->selectRaw('status, count(*) as total_user')
+            ->whereRaw('age > ?', [18]) // Filter umur > 18
+            ->groupBy('status')
+            ->orderByRaw('total_user DESC')
+            ->get();
+
+        return response()->json([
+            'message' => 'Laporan User Berhasil Diambil',
+            'data' => $data
+        ]);
+    }
+
+    /**
+     * Contoh Menggunakan Manual Transaction (Laravel 12 Style)
+     */
+    public function transferPoints(Request $request)
+    {
+        // Kita gunakan try-catch agar jika ada error, kita bisa tangkap
+        try {
+            DB::beginTransaction();
+
+            // 1. Operasi Pertama: Kurangi poin pengirim (Raw Update)
+            $updatedFrom = DB::update('UPDATE users SET votes = votes - ? WHERE id = ?', [10, 1]);
+
+            // 2. Simulasi Error (Misal saldo tidak cukup atau ID tidak ada)
+            if (!$updatedFrom) {
+                throw new \Exception("Gagal mengurangi poin pengirim.");
+            }
+
+            // 3. Operasi Kedua: Tambah poin penerima
+            DB::table('users')->where('id', 2)->increment('votes', 10);
+
+            // Jika semua oke, kita permanenkan di database
+            DB::commit();
+
+            return response()->json(['status' => 'success', 'message' => 'Poin berhasil dikirim!']);
+
+        } catch (Throwable $e) {
+            // Jika ada satu saja yang gagal, BATALKAN SEMUA operasi di atas
+            DB::rollBack();
+
+            // Catat error di storage/logs/laravel.log agar kita bisa cek nanti
+            Log::error("Transfer Gagal: " . $e->getMessage());
+
+            return response()->json(['status' => 'error', 'message' => 'Transaksi Batal: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Contoh Transaction Otomatis dengan Deadlock Prevention (Retry 5x)
+     */
+    public function autoTransaction()
+    {
+        return DB::transaction(function () {
+            // Hapus post lama
+            DB::table('posts')->where('created_at', '<', now()->subYear())->delete();
+            
+            // Update status user terkait
+            DB::table('users')->where('active', false)->update(['status' => 'archived']);
+
+            return "Proses pembersihan data selesai!";
+        }, 5); // Angka 5 artinya mencoba ulang 5 kali jika terjadi tabrakan data (deadlock)
+    }
+}
